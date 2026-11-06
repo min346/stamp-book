@@ -1,5 +1,25 @@
 // App-shell cache: the page itself is network-first (so updates arrive), everything else cache-first.
-const CACHE = "stamp-book-v2"; // bump on every release so phones drop old files
+const CACHE = "stamp-book-v3"; // bump on every release so phones drop old files
+
+// daily reminder: the server sends an empty push, the text lives here
+self.addEventListener("push", e => {
+  e.waitUntil(self.registration.showNotification("English Stamp Book", {
+    body: "今天的 15 题还没做，花 10 分钟拿一个印章 🔖",
+    icon: "icons/icon-192.png",
+    badge: "icons/icon-192.png",
+    tag: "daily-quiz",
+    renotify: true,
+    data: { url: "./#quiz" }
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) { if (c.url.startsWith(self.registration.scope)) { c.navigate(url).catch(() => {}); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
+});
 const SHELL = [
   "./",
   "./index.html",

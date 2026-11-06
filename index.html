@@ -437,12 +437,36 @@ function renderWords() {
       <div class="ipa">${esc(w.ipa || "")}</div>
       ${S.flipped ? `<div class="zh">${esc(w.zh)}</div><div class="exs">${esc(w.example)}</div><div class="note">${esc(w.example_zh || "")}</div>` : `<div class="note">先想一想意思，再点卡片翻面</div>`}
     </button></div>
+    <div class="row" style="gap:8px">
+      <button class="btn ghost grow" id="sayWord" type="button">🔊 读单词</button>
+      <button class="btn ghost grow" id="saySlow" type="button">🐢 慢速</button>
+      ${S.flipped ? `<button class="btn ghost grow" id="sayEx" type="button">🔊 读例句</button>` : ""}
+    </div>
     ${S.flipped ? `<div class="vbtns"><button class="btn b0" data-g="0">不认识</button><button class="btn b1" data-g="1">有点模糊</button><button class="btn b2" data-g="2">认识</button></div>` : `<button class="btn ghost" id="flip2">翻面看意思</button>`}
     <p class="note" style="margin:0">第 ${S.card + 1} / ${due.length} 张。"认识"的词会隔更久才再出现；"不认识"的明天再来。背单词不影响印章。</p>
   </div>`;
   $("flip").onclick = () => { S.flipped = !S.flipped; renderWords(); };
+  $("sayWord").onclick = () => speak(w.word, 0.9);
+  $("saySlow").onclick = () => speak(w.word, 0.55);
+  if ($("sayEx")) $("sayEx").onclick = () => speak(w.example, 0.9);
   const f2 = $("flip2"); if (f2) f2.onclick = () => { S.flipped = true; renderWords(); };
   v.querySelectorAll("[data-g]").forEach(b => b.onclick = () => grade(w, +b.dataset.g));
+}
+/* pronunciation: the phone's own text-to-speech, works offline once a voice is installed */
+let enVoice = null;
+function pickVoice() {
+  const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+  enVoice = vs.find(v => /en[-_]US/i.test(v.lang) && /google/i.test(v.name)) || vs.find(v => /en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+}
+if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text, rate) {
+  if (!("speechSynthesis" in window)) return sys(`<div class="banner">这台手机的浏览器不支持朗读。请在手机「设置 → 文字转语音」里安装 Google 语音引擎。</div>`);
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = enVoice ? enVoice.lang : "en-US"; if (enVoice) u.voice = enVoice;
+  u.rate = rate; u.pitch = 1;
+  u.onerror = e => { if (e.error !== "interrupted" && e.error !== "canceled") sys(`<div class="banner">朗读失败（${esc(e.error)}）。请检查手机音量，或在「设置 → 文字转语音」里安装英文语音。</div>`); };
+  speechSynthesis.speak(u);
 }
 function wordList(all) {
   const recent = [...all].sort((a, b) => (a.added_date < b.added_date ? 1 : -1)).slice(0, 40);
@@ -491,10 +515,79 @@ function renderStamps() {
     <div class="card stack"><div class="row"><h3 class="grow">20 个印章奖励</h3><span class="pill ${unlocked ? "done" : "new"}">${unlocked ? "已解锁" : "未解锁"}</span></div>
       <div>${st.reward_text ? esc(st.reward_text) : '<span class="muted">还没设定。想好之后告诉 Claude，就会写在这里。</span>'}</div></div>
     <div class="card stack"><h3>印章记录</h3>${(st.log || []).length ? `<ul class="log">${[...st.log].reverse().slice(0, 40).map(l => `<li><span>${esc(nice(l.date))} · ${esc(l.note)}</span><span class="${l.delta > 0 ? "plus" : "minus"}">${l.delta > 0 ? "+1" : "−1"}</span></li>`).join("")}</ul>` : `<p class="note" style="margin:0">还没有记录。完成今天的测验，盖下第一个印章。</p>`}</div>
+    ${reminderCard()}
     <button class="linkbtn" id="logoutBtn" style="align-self:flex-start">退出登录</button>
   </div>`;
   $("logoutBtn").onclick = async () => { await S.sb.auth.signOut(); };
+  bindReminder();
   S.freshStamp = false;
+}
+
+/* ---------- daily reminder (Web Push from the server at the chosen time) ---------- */
+const VAPID_PUBLIC = "BO_udvM-uQX6RtmvFkTv6BDawh-UnC2ny2HAUJkAzGsV6xGhbK2bYTkkPHXM0YXGLbwXHtdh4X4cjGVADExHH9I";
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const b64ToBytes = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+function reminderCard() {
+  const r = S.reminder || { enabled: false, remind_time: "20:00" };
+  const t = String(r.remind_time || "20:00").slice(0, 5);
+  const perm = "Notification" in window ? Notification.permission : "unsupported";
+  const on = r.enabled && perm === "granted";
+  const status = !pushSupported() ? "这台手机不支持通知。请用 Chrome 安装的 App 打开。" :
+    perm === "denied" ? "通知被手机挡住了。请到手机「设置 → 应用 → Stamp Book → 通知」打开，再回来点「开启提醒」。" :
+    on ? `每天 ${t} 会提醒你；如果那时已经做完今天的测验，就不会打扰你。` : "还没开启。选一个时间，然后点「开启提醒」。";
+  return `<div class="card stack" id="reminderCard"><div class="row"><h3 class="grow">每日提醒</h3><span class="pill ${on ? "done" : "new"}">${on ? "已开启" : "未开启"}</span></div>
+    <label class="field">提醒时间（马来西亚时间）<input id="remindTime" type="time" value="${esc(t)}" step="300"></label>
+    <div class="row" style="gap:8px">
+      <button class="btn grow" id="remindOn" type="button">${on ? "保存时间" : "开启提醒"}</button>
+      ${on ? `<button class="btn ghost grow" id="remindOff" type="button">关闭提醒</button>` : ""}
+    </div>
+    ${on ? `<button class="linkbtn" id="remindTest" type="button" style="align-self:flex-start">发一条测试通知</button>` : ""}
+    <p class="note" id="remindMsg" style="margin:0">${status}</p></div>`;
+}
+function remindMsg(t) { const el = $("remindMsg"); if (el) el.textContent = t; }
+function bindReminder() {
+  if ($("remindOn")) $("remindOn").onclick = () => enableReminder($("remindTime").value);
+  if ($("remindOff")) $("remindOff").onclick = disableReminder;
+  if ($("remindTest")) $("remindTest").onclick = testReminder;
+}
+async function enableReminder(time) {
+  if (!/^\d{2}:\d{2}$/.test(time || "")) return remindMsg("请先选一个时间。");
+  if (!pushSupported()) return remindMsg("这台手机不支持通知。请用 Chrome 安装的 App 打开。");
+  if (!navigator.onLine) return remindMsg("现在没有网络，连上网络后再设置。");
+  $("remindOn").disabled = true; remindMsg("正在设置…");
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { remindMsg("你没有允许通知。请到手机「设置 → 应用 → Stamp Book → 通知」打开，再回来点「开启提醒」。"); return; }
+    const reg = await withTimeout(navigator.serviceWorker.ready, 10000);
+    const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) }));
+    const j = sub.toJSON();
+    const r1 = await S.sb.from("push_subs").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: "endpoint" });
+    if (r1.error) throw r1.error;
+    // if the new time is still ahead today, allow today's reminder to fire again
+    const nowMin = (() => { const d = new Date(Date.now() + 8 * MS_H); return d.getUTCHours() * 60 + d.getUTCMinutes(); })();
+    const [h, m] = time.split(":").map(Number), since6 = x => (x - 360 + 1440) % 1440;
+    const row = { id: 1, enabled: true, remind_time: time };
+    if (since6(h * 60 + m) > since6(nowMin)) row.last_sent_date = null;
+    const r2 = await S.sb.from("reminder_settings").upsert(row, { onConflict: "id" });
+    if (r2.error) throw r2.error;
+    S.reminder = { ...(S.reminder || {}), ...row };
+    renderStamps(); remindMsg(`✅ 设置好了，每天 ${time} 提醒你（已经做完测验的日子不会提醒）。`);
+  } catch (e) {
+    remindMsg("设置失败：" + (e.message || e) + "。请检查网络后再试一次。");
+  } finally { if ($("remindOn")) $("remindOn").disabled = false; }
+}
+async function disableReminder() {
+  const r = await S.sb.from("reminder_settings").upsert({ id: 1, enabled: false }, { onConflict: "id" });
+  if (r.error) return remindMsg("关闭失败：" + r.error.message);
+  S.reminder = { ...(S.reminder || {}), enabled: false }; renderStamps(); remindMsg("提醒已关闭。");
+}
+async function testReminder() {
+  remindMsg("正在发送…");
+  try {
+    const { data, error } = await withTimeout(S.sb.functions.invoke("send-reminders", { body: { test: true } }));
+    if (error) throw error;
+    remindMsg(data && data.sent ? "测试通知已经发出，几秒内应该会收到。没收到的话，检查手机有没有开「勿扰模式」。" : "服务器没有找到这台手机的通知登记，请再点一次「保存时间」。");
+  } catch (e) { remindMsg("发送失败：" + (e.message || e)); }
 }
 
 /* ---------- shell ---------- */
@@ -532,6 +625,7 @@ const byKey = (rows, k) => Object.fromEntries((rows || []).map(r => [r[k], r]));
 
 async function load() {
   const since = addDays(S.today, -60);
+  S.sb.from("reminder_settings").select("*").eq("id", 1).maybeSingle().then(r => { if (!r.error) { S.reminder = r.data; if (!$("v-stamps").hidden) renderStamps(); } });
   const [dq, qr, st, rl, vc] = await Promise.all([
     S.sb.from("daily_quiz").select("*").gte("quiz_date", since),
     S.sb.from("quiz_results").select("*").gte("quiz_date", since),
