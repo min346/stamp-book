@@ -235,8 +235,15 @@ function mastery(s) {
 }
 
 /* ---------- auth view ---------- */
+function authMsg(html, kind) {
+  const el = $("authMsg"); if (!el) return;
+  el.innerHTML = html || ""; el.hidden = !html;
+  el.style.background = kind === "ok" ? "var(--good-soft)" : kind === "err" ? "var(--bad-soft)" : "var(--gold-soft)";
+  if (html) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
 function renderAuth(msg) {
   const v = $("v-auth");
+  if ($("authForm")) { authMsg(msg); return; } // never rebuild the form: that would wipe what was typed
   v.innerHTML = `<div class="stack">
     <div class="hero-stamp">${stampSvg(S.today, true)}</div>
     <div><div class="eyebrow">English Stamp Book</div><h2>登录你的印章本</h2>
@@ -244,30 +251,52 @@ function renderAuth(msg) {
     <form id="authForm" class="card stack" novalidate>
       <label class="field">Email<input id="authEmail" type="email" autocomplete="username" value="${esc(OWNER_EMAIL)}" required></label>
       <label class="field">密码<input id="authPw" type="password" autocomplete="current-password" minlength="8" required placeholder="至少 8 个字符"></label>
+      <div id="authMsg" class="banner" role="status" aria-live="polite" ${msg ? "" : "hidden"}>${msg || ""}</div>
       <button class="btn" type="submit" id="authBtn">登录</button>
-      <button class="linkbtn" type="button" id="signupBtn">第一次使用？用这个 email 创建账号</button>
+      <button class="btn ghost" type="button" id="signupBtn">第一次使用：创建账号</button>
     </form>
-    ${msg ? `<div class="banner">${msg}</div>` : ""}
   </div>`;
-  $("authForm").onsubmit = async e => { e.preventDefault(); await doAuth("in"); };
+  $("authForm").onsubmit = e => { e.preventDefault(); doAuth("in"); };
   $("signupBtn").onclick = () => doAuth("up");
 }
+const withTimeout = (p, ms = 15000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+let authBusy = false;
 async function doAuth(mode) {
-  const email = $("authEmail").value.trim(), password = $("authPw").value;
-  if (!email || password.length < 8) return renderAuth("请填写 email，密码至少 8 个字符。");
-  $("authBtn").disabled = true;
+  if (authBusy) return;
+  const email = $("authEmail").value.trim().toLowerCase(), password = $("authPw").value;
+  if (!/^\S+@\S+\.\S+$/.test(email)) return authMsg("请填写正确的 email。", "err");
+  if (password.length < 8) return authMsg(`密码至少要 8 个字符（现在是 ${password.length} 个）。`, "err");
+  if (!S.sb) return authMsg("连不上服务器，请检查网络后重新打开 App。", "err");
+  if (!navigator.onLine) return authMsg("现在没有网络，连上网络后再试。", "err");
+  authBusy = true;
+  const btn = mode === "up" ? $("signupBtn") : $("authBtn"), label = btn.textContent;
+  $("authBtn").disabled = $("signupBtn").disabled = true;
+  btn.textContent = mode === "up" ? "正在创建账号…" : "正在登录…";
+  authMsg("");
   try {
     if (mode === "up") {
-      const { data, error } = await S.sb.auth.signUp({ email, password });
+      const { data, error } = await withTimeout(S.sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } }));
       if (error) throw error;
-      if (!data.session) return renderAuth("账号已建立。请到 email 里点确认链接（点开后页面打不开也没关系，账号已经确认了），然后回来登录。也可以直接告诉 Claude 帮你确认。");
+      if (!data.session) authMsg("✅ 账号已经建好。现在回到 Claude，说「账号建好了」，Claude 会帮你确认账号；确认后回来点「登录」。（如果收到确认 email，点里面的链接也可以。）", "ok");
     } else {
-      const { error } = await S.sb.auth.signInWithPassword({ email, password });
+      const { error } = await withTimeout(S.sb.auth.signInWithPassword({ email, password }));
       if (error) throw error;
     }
   } catch (err) {
-    const m = String(err && err.message || err);
-    renderAuth(/confirm/i.test(m) ? "这个账号还没确认 email。请先点 email 里的确认链接，或者让 Claude 帮你确认。" : /invalid login/i.test(m) ? "email 或密码不对。第一次使用请先点「创建账号」。" : "登录失败：" + esc(m));
+    const m = String(err && (err.code || err.message) || err);
+    const txt =
+      /timeout|fetch|network/i.test(m) ? "等了 15 秒服务器都没有回应。请检查网络后再试一次。" :
+      /email_not_confirmed|not confirmed/i.test(m) ? "账号已经存在，但还没确认。回到 Claude 说「账号建好了」，确认后就能登录。" :
+      /invalid_credentials|invalid login/i.test(m) ? "email 或密码不对。如果还没有账号，点「第一次使用：创建账号」。" :
+      /user_already_exists|already registered/i.test(m) ? "这个 email 已经有账号了，请直接点「登录」。" :
+      /over_email_send_rate_limit|rate limit/i.test(m) ? "确认 email 发得太频繁，被暂时限制了。账号可能已经建好，回到 Claude 说一声就能帮你确认。" :
+      /email_address_not_authorized/i.test(m) ? "系统发不了确认 email 到这个地址。回到 Claude 说一声，Claude 会直接帮你确认账号。" :
+      /weak_password/i.test(m) ? "密码太简单了，换一个更长、混合字母和数字的密码。" :
+      "出错了：" + esc(err.message || m);
+    authMsg(txt, "err");
+  } finally {
+    authBusy = false;
+    if ($("authBtn")) { $("authBtn").disabled = $("signupBtn").disabled = false; btn.textContent = label; }
   }
 }
 
@@ -324,6 +353,7 @@ async function next(qs) {
   const allDone = qs.every(q => (res.answers || {})[q.id]);
   if (S.qi < qs.length - 1 && !allDone) { S.qi++; S.picked = null; renderQuiz(); window.scrollTo(0, 0); return; }
   if (!allDone) { S.picked = null; renderQuiz(); return; }
+  if (S.saving || res.done) return; // a double tap must never give two stamps
   S.saving = true; renderQuiz();
   const score = qs.filter(q => res.answers[q.id].correct).length;
   const doneRes = { ...clone(res), done: true, score, total: qs.length, finished_at: new Date().toISOString() };
@@ -511,7 +541,10 @@ async function load() {
   ]);
   const err = [dq, qr, st, rl, vc].find(r => r.error);
   if (err) throw err.error;
-  S.days = byKey(dq.data, "quiz_date"); S.results = byKey(qr.data, "quiz_date");
+  // drop malformed questions so one bad item can't break the whole quiz
+  (dq.data || []).forEach(d => { d.questions = (Array.isArray(d.questions) ? d.questions : []).filter(q =>
+    q && q.id && typeof q.prompt === "string" && Array.isArray(q.options) && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length); });
+  S.days = byKey((dq.data || []).filter(d => d.questions.length), "quiz_date"); S.results = byKey(qr.data, "quiz_date");
   S.state = st.data; S.rules = rl.data || []; S.vocab = byKey(vc.data, "word");
   // keep this device's unsynced answers on top of what the server has
   Object.values(LS.get("sb-pending", {})).forEach(({ table, row }) => {
@@ -551,8 +584,18 @@ async function refresh() {
   renderAll();
 }
 
+// any unexpected error is shown instead of the app silently doing nothing
+addEventListener("error", e => sys(`<div class="banner">App 出错了：${esc(e.message)}。请关掉 App 重新打开；如果一直出现，截图发给 Claude。</div>`));
+addEventListener("unhandledrejection", e => sys(`<div class="banner">App 出错了：${esc((e.reason && e.reason.message) || e.reason)}。请重新打开 App；如果一直出现，截图发给 Claude。</div>`));
+
 async function boot() {
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").then(reg => reg.update()).catch(() => {});
+    // when a new version takes over, reload once so the phone never keeps running old code
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (!reloaded && navigator.serviceWorker.controller && sessionStorage.getItem("sw-seen")) { reloaded = true; location.reload(); } sessionStorage.setItem("sw-seen", "1"); });
+    if (navigator.serviceWorker.controller) sessionStorage.setItem("sw-seen", "1");
+  }
   addEventListener("online", () => { flush(); refresh(); });
   addEventListener("offline", renderHeader);
   if (!window.supabase) {

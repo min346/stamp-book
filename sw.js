@@ -1,5 +1,5 @@
 // App-shell cache: the page itself is network-first (so updates arrive), everything else cache-first.
-const CACHE = "stamp-book-v1";
+const CACHE = "stamp-book-v2"; // bump on every release so phones drop old files
 const SHELL = [
   "./",
   "./index.html",
