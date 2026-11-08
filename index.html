@@ -99,6 +99,17 @@ details.rule .body{padding:0 16px 16px;display:flex;flex-direction:column;gap:10
 .vbtns .btn{padding:12px 6px;font-size:15px}
 .vbtns .b0{background:var(--bad)} .vbtns .b1{background:var(--gold)} .vbtns .b2{background:var(--good)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:12px;background:var(--line)}
+.seg button{border:0;border-radius:9px;padding:9px 4px;background:transparent;color:var(--muted);font-weight:700;font-size:14px}
+.seg button[aria-selected="true"]{background:var(--paper);color:var(--ink)}
+.dot{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--ink);color:var(--paper);font-size:11px;line-height:18px;font-variant-numeric:tabular-nums}
+.spell{font-family:var(--f-mono);font-size:22px;letter-spacing:.04em;padding:14px;border-radius:12px;border:2px solid var(--line);background:var(--paper);color:var(--fg);width:100%}
+.spell:focus{outline:3px solid var(--ink-soft);border-color:var(--ink)}
+.hint{font-family:var(--f-mono);font-size:18px;letter-spacing:.06em;padding:10px 12px;border-radius:10px;background:var(--gold-soft);color:var(--gold);overflow-wrap:anywhere}
+.spellans{font-family:var(--f-mono);letter-spacing:.04em}
+.spellans mark{background:var(--gold-soft);color:var(--gold);border-radius:3px;padding:0 1px}
+.meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ink);border-radius:5px}
 .stat{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
 .stat b{display:block;font-family:var(--f-display);font-size:24px;font-variant-numeric:tabular-nums}
 .stat span{font-size:12px;color:var(--muted)}
@@ -420,14 +431,26 @@ function dueWords() {
 function renderWords() {
   const v = $("v-words");
   if (!S.ready) { v.innerHTML = loadingCard("正在载入单词…"); return; }
+  const mode = S.wordMode || "cards";
+  const ready = testReady().length;
+  const seg = `<div><div class="eyebrow">${nice(S.today)} · 间隔复习</div><h2>背单词</h2></div>
+    <div class="seg" role="tablist">
+      <button role="tab" data-mode="cards" aria-selected="${mode === "cards"}">翻卡片</button>
+      <button role="tab" data-mode="test" aria-selected="${mode === "test"}">拼写测验${ready ? ` <span class="dot">${ready}</span>` : ""}</button>
+      <button role="tab" data-mode="points" aria-selected="${mode === "points"}">单词积分</button>
+    </div>`;
+  if (mode === "test") renderTest(v, seg); else if (mode === "points") renderPoints(v, seg); else renderCards(v, seg);
+  v.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.wordMode = b.dataset.mode; if (S.wordMode === "test" && (!S.test || S.test.finished)) S.test = null; renderWords(); window.scrollTo(0, 0); });
+}
+function renderCards(v, seg) {
   const all = Object.values(S.vocab);
   const due = dueWords();
   const fresh = all.filter(w => w.added_date === S.today).length;
   const known = all.filter(w => (w.box || 0) >= 4).length;
-  const head = `<div><div class="eyebrow">${nice(S.today)} · 间隔复习</div><h2>背单词</h2></div>
+  const head = seg + `
     <div class="stats"><div class="stat"><b>${due.length}</b><span>今天要背</span></div><div class="stat"><b>${fresh}</b><span>今日新词</span></div><div class="stat"><b>${known}</b><span>记得牢</span></div></div>`;
   if (!all.length) { v.innerHTML = `<div class="stack">${head}<div class="card note">还没有单词。每天 06:00 会加入新词。</div></div>`; return; }
-  if (!due.length) { v.innerHTML = `<div class="stack">${head}<div class="card note">今天的单词都背完了。明天 06:00 会有新词，旧词也会按时间回来复习。</div>${wordList(all)}</div>`; return; }
+  if (!due.length) { v.innerHTML = `<div class="stack">${head}<div class="card note">今天的单词都背完了。${testReady().length ? `有 <b>${testReady().length}</b> 个词可以做拼写测验了，去 <button class="linkbtn" data-mode="test">拼写测验</button> 检查自己是不是真的记住了。` : "明天 06:00 会有新词，旧词也会按时间回来复习。"}</div>${wordList(all)}</div>`; return; }
   if (S.card >= due.length) S.card = 0;
   const w = due[S.card];
   v.innerHTML = `<div class="stack">${head}
@@ -479,6 +502,167 @@ async function grade(w, g) {
   S.vocab[w.word] = row; S.flipped = false; snapshot();
   renderWords();
   await write("vocab", row, "word");
+}
+
+/* ---------- spelling test ----------
+   Two question types: 1) Chinese meaning -> type the word; 2) sentence with a blank -> type the word.
+   A word only gets type 2 after it has passed type 1 without a hint.
+   Using a hint adds "hint_debt": the word comes back for extra tests over the next weeks. */
+const TEST_GAPS = [1, 3, 7, 14, 30];
+const TEST_MAX = 12;
+const norm = s => String(s || "").normalize("NFKC").replace(/[’‘`]/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
+function testReady() {
+  return Object.values(S.vocab).filter(w => (w.seen || 0) >= 1 && (!w.test_due || w.test_due <= S.today));
+}
+function questionType(w) {
+  if (!w.cloze || !(w.test_stage >= 1)) return "meaning";
+  if (w.test_stage >= 2) return Math.random() < 0.6 ? "sentence" : "meaning";
+  return "sentence";
+}
+function startTest() {
+  const pool = testReady().sort((a, b) => (b.hint_debt || 0) - (a.hint_debt || 0) || String(a.test_due || "").localeCompare(String(b.test_due || "")) || (a.test_box || 0) - (b.test_box || 0));
+  S.test = { items: pool.slice(0, TEST_MAX).map(w => ({ word: w.word, type: questionType(w), retry: false })), i: 0, hint: 0, answered: null, earned: 0, firstTry: {}, finished: false };
+}
+function hintText(word, level) {
+  const letters = [...word];
+  if (level === 1) return letters.map((c, i) => i === 0 || c === " " || c === "-" ? c : "_").join(" ") + `（${letters.filter(c => /[a-z]/i.test(c)).length} 个字母）`;
+  return letters.map((c, i) => i % 2 === 0 || c === " " || c === "-" ? c : "_").join(" ");
+}
+function diffHtml(given, right) {
+  const g = [...norm(given)], r = [...right];
+  return r.map((c, i) => g[i] && g[i] === c.toLowerCase() ? esc(c) : `<mark>${esc(c)}</mark>`).join("");
+}
+function renderTest(v, seg) {
+  if (!S.test) startTest();
+  const T = S.test;
+  if (!T.items.length) {
+    v.innerHTML = `<div class="stack">${seg}<div class="card note">现在没有要测的单词。<br>单词要先在「翻卡片」里背过一次，才会进入拼写测验；测过的词会按记得多牢，隔 1、3、7、14、30 天再回来。</div></div>`;
+    return;
+  }
+  if (T.finished || T.i >= T.items.length) return renderTestDone(v, seg);
+  const it = T.items[T.i], w = S.vocab[it.word];
+  const done = T.answered;
+  const prompt = it.type === "meaning"
+    ? `<div class="eyebrow">看意思，拼出单词 · ${esc(w.pos || "")}</div><div class="zh" style="font-size:26px">${esc(w.zh)}</div>`
+    : `<div class="eyebrow">句子里缺了哪个词？</div><div class="prompt" style="font-weight:400">${esc(w.cloze).split("___").join('<span class="blank"></span>')}</div>`;
+  v.innerHTML = `<div class="stack">${seg}
+    <div class="row"><div class="grow eyebrow">第 ${T.i + 1} / ${T.items.length} 题${it.retry ? " · 再练一次（不计分）" : ""}</div><span class="count">本轮 +${T.earned} 分</span></div>
+    <div class="progress" style="grid-template-columns:repeat(${T.items.length},1fr)" aria-hidden="true">${T.items.map((x, i) => `<i class="${i < T.i ? (T.firstTry[x.word + (x.retry ? "#r" : "")] ? "ok" : "no") : i === T.i ? "cur" : ""}"></i>`).join("")}</div>
+    <div class="card stack">
+      ${prompt}
+      ${T.hint && !done ? `<div class="hint">💡 ${esc(hintText(w.word, T.hint))}</div>` : ""}
+      <form id="spellForm" class="stack" style="gap:10px" autocomplete="off" novalidate>
+        <input id="spellIn" class="spell" type="text" inputmode="text" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="输入单词" placeholder="在这里输入单词" ${done ? "disabled" : ""} value="${done ? esc(done.given) : ""}">
+        ${done ? "" : `<div class="row" style="gap:8px"><button class="btn grow" type="submit">检查</button><button class="btn ghost" type="button" id="hintBtn" ${T.hint >= 2 ? "disabled" : ""}>💡 提示${T.hint ? "（再多一点）" : ""}</button></div>
+        <button class="linkbtn" type="button" id="giveUp" style="align-self:flex-start">不会，看答案</button>`}
+      </form>
+      ${done ? feedbackHtml(w, it, done) : ""}
+    </div>
+    ${done ? `<button class="btn" id="nextSpell">${T.i === T.items.length - 1 ? "看结果" : "下一题"}</button>` : `<p class="note" style="margin:0">用了提示也能拿分，但这个词接下来几周会多测几次。</p>`}
+  </div>`;
+  const inp = $("spellIn");
+  if (!done) {
+    setTimeout(() => inp.focus(), 50);
+    $("spellForm").onsubmit = e => { e.preventDefault(); if (norm(inp.value)) answerSpell(inp.value, false); else inp.focus(); };
+    $("hintBtn").onclick = () => { T.hint = Math.min(2, T.hint + 1); const keep = inp.value; renderWords(); $("spellIn").value = keep; };
+    $("giveUp").onclick = () => answerSpell(inp.value, true);
+  } else {
+    $("nextSpell").onclick = () => { T.i++; T.hint = 0; T.answered = null; renderWords(); window.scrollTo(0, 0); };
+    const say = $("sayAns"); if (say) say.onclick = () => speak(w.word, 0.8);
+  }
+}
+function feedbackHtml(w, it, d) {
+  const ex = it.type === "sentence" ? `<div class="note">${esc(w.cloze.replace("___", w.word))}<br>${esc(w.cloze_zh || "")}</div>` : `<div class="note">${esc(w.example || "")}</div>`;
+  if (d.correct) return `<div class="feedback ok"><strong>拼对了${d.points ? ` · +${d.points} 分` : ""}</strong>${d.hinted ? "用了提示，这个词接下来几周会多测几次。" : "没用提示，下次会隔更久再测。"}${ex}<button class="linkbtn" type="button" id="sayAns">🔊 听发音</button></div>`;
+  return `<div class="feedback no"><strong>${d.gaveUp && !norm(d.given) ? "答案是" : "不对，正确拼写是"}：<span class="spellans">${diffHtml(d.given, w.word)}</span></strong>
+    ${norm(d.given) ? `你写的是 <s>${esc(d.given)}</s>（黄色是写错或漏掉的字母）。` : ""} 这个词明天会再测，翻卡片里也会再出现。${ex}<button class="linkbtn" type="button" id="sayAns">🔊 听发音</button></div>`;
+}
+async function answerSpell(given, gaveUp) {
+  const T = S.test, it = T.items[T.i], w = S.vocab[it.word];
+  if (T.answered) return;
+  const correct = !gaveUp && norm(given) === norm(w.word);
+  const hinted = T.hint > 0;
+  let points = 0;
+  T.firstTry[it.word + (it.retry ? "#r" : "")] = correct && !hinted;
+  if (!it.retry) {
+    const row = { ...w, tests: (w.tests || 0) + 1, last_test: S.today };
+    if (correct && !hinted) {
+      row.test_correct = (w.test_correct || 0) + 1;
+      row.test_box = Math.min((w.test_box || 0) + 1, TEST_GAPS.length);
+      let gap = TEST_GAPS[row.test_box - 1];
+      if ((w.hint_debt || 0) > 0) { row.hint_debt = w.hint_debt - 1; gap = Math.min(gap, 3); }
+      row.test_due = addDays(S.today, gap);
+      row.test_stage = Math.max(w.test_stage || 0, it.type === "sentence" ? 2 : 1);
+      points = it.type === "sentence" ? 3 : 2;
+    } else if (correct && hinted) {
+      row.test_correct = (w.test_correct || 0) + 1;
+      row.hint_debt = Math.min((w.hint_debt || 0) + 2, 4);
+      row.test_due = addDays(S.today, 1);
+      points = 1;
+    } else {
+      row.test_box = 0;
+      row.test_due = addDays(S.today, 1);
+      if (hinted) row.hint_debt = Math.min((w.hint_debt || 0) + 2, 4);
+      row.box = 0; row.due = addDays(S.today, 1); // show the flashcard again tomorrow
+    }
+    S.vocab[w.word] = row;
+    if (!correct) T.items.push({ word: w.word, type: it.type, retry: true }); // practise once more at the end
+    if (points) addPoints(points, `${w.word} · ${it.type === "sentence" ? "句子填空" : "看意思拼写"}${hinted ? "（用了提示）" : ""}`);
+    T.earned += points;
+    write("vocab", row, "word");
+  }
+  T.answered = { given, correct, hinted, gaveUp, points };
+  snapshot();
+  renderWords();
+}
+function renderTestDone(v, seg) {
+  const T = S.test;
+  if (!T.finished) {
+    T.finished = true;
+    const first = T.items.filter(x => !x.retry);
+    if (first.length >= 5 && first.every(x => T.firstTry[x.word])) { addPoints(5, "整轮全对、没用提示 · 奖励"); T.earned += 5; }
+  }
+  const first = T.items.filter(x => !x.retry);
+  const ok = first.filter(x => T.firstTry[x.word]).length;
+  const missed = first.filter(x => !T.firstTry[x.word]).map(x => S.vocab[x.word]);
+  v.innerHTML = `<div class="stack">${seg}
+    <div class="card row"><div class="grow"><div class="eyebrow">这一轮拼写测验</div><div class="score">${ok}<span class="muted" style="font-size:24px"> / ${first.length}</span></div>
+      <p class="note" style="margin:6px 0 0">${ok === first.length ? "全部一次拼对，没用提示。" : `有 ${first.length - ok} 个词需要再练（拼错或用了提示）。`}</p></div>
+      <div style="text-align:right"><div class="eyebrow">获得积分</div><div class="big" style="font-size:44px">+${T.earned}</div></div></div>
+    ${missed.length ? `<div class="card stack"><h3>要再练的词</h3><ul class="log">${missed.map(w => `<li><span><b>${esc(w.word)}</b> <span class="muted">${esc(w.zh)}</span></span><span class="count">${w.test_due ? nice(w.test_due) + " 再测" : ""}</span></li>`).join("")}</ul></div>` : ""}
+    ${testReady().length ? `<button class="btn" id="againTest">再测一轮（还有 ${testReady().length} 个词）</button>` : `<div class="card note">今天能测的词都测完了。</div>`}
+  </div>`;
+  const a = $("againTest"); if (a) a.onclick = () => { S.test = null; renderWords(); };
+}
+
+/* ---------- vocabulary points (separate from stamps) ---------- */
+function addPoints(n, note) {
+  const sc = clone(S.vscore || { id: 1, points: 0, log: [] });
+  sc.points = (sc.points || 0) + n;
+  sc.log = [...(sc.log || []), { date: S.today, delta: n, note }].slice(-200);
+  sc.updated_at = new Date().toISOString();
+  S.vscore = sc;
+  write("vocab_score", sc, "id");
+}
+function renderPoints(v, seg) {
+  const sc = S.vscore || { points: 0, log: [] };
+  const pts = sc.points || 0, level = Math.floor(pts / 50) + 1, inLevel = pts % 50;
+  const today = (sc.log || []).filter(l => l.date === S.today).reduce((a, l) => a + l.delta, 0);
+  const all = Object.values(S.vocab);
+  const tested = all.filter(w => (w.tests || 0) > 0);
+  const acc = tested.length ? Math.round(100 * tested.reduce((a, w) => a + (w.test_correct || 0), 0) / tested.reduce((a, w) => a + (w.tests || 0), 0)) : 0;
+  const s1 = all.filter(w => (w.test_stage || 0) >= 1).length, s2 = all.filter(w => (w.test_stage || 0) >= 2).length;
+  const debt = all.filter(w => (w.hint_debt || 0) > 0);
+  v.innerHTML = `<div class="stack">${seg}
+    <div class="book stack">
+      <div class="row"><div class="grow"><div class="eyebrow">单词积分 · 第 ${level} 级</div><div class="big">${pts}</div></div><div class="note" style="text-align:right">今天 +${today}<br>再 ${50 - inLevel} 分升到第 ${level + 1} 级</div></div>
+      <div class="meter" aria-label="升级进度"><i style="width:${inLevel * 2}%"></i></div>
+      <p class="note" style="margin:0">这里的积分和印章分开计算。看意思拼对 +2，句子填空拼对 +3，用了提示拼对 +1，一整轮（至少 5 题）全对且没用提示再 +5。</p>
+    </div>
+    <div class="stats"><div class="stat"><b>${s1}</b><span>会拼写</span></div><div class="stat"><b>${s2}</b><span>会用在句子里</span></div><div class="stat"><b>${acc}%</b><span>拼写正确率</span></div></div>
+    ${debt.length ? `<div class="card stack"><h3>用过提示、要加练的词</h3><ul class="log">${debt.map(w => `<li><span><b>${esc(w.word)}</b> <span class="muted">${esc(w.zh)}</span></span><span class="count">还要多测 ${w.hint_debt} 次</span></li>`).join("")}</ul></div>` : ""}
+    <div class="card stack"><h3>积分记录</h3>${(sc.log || []).length ? `<ul class="log">${[...sc.log].reverse().slice(0, 40).map(l => `<li><span>${esc(nice(l.date))} · ${esc(l.note)}</span><span class="plus">+${l.delta}</span></li>`).join("")}</ul>` : `<p class="note" style="margin:0">还没有积分。先去「翻卡片」背几个词，再来「拼写测验」。</p>`}</div>
+  </div>`;
 }
 
 /* ---------- stamps ---------- */
@@ -603,7 +787,7 @@ function renderAll() { renderHeader(); if (!S.user) { renderAuth(); showTab(); r
 function sys(html) { const el = $("sysmsg"); el.innerHTML = html; el.hidden = !html; }
 
 /* ---------- data ---------- */
-function snapshot() { LS.set("sb-snapshot", { days: S.days, results: S.results, state: S.state, rules: S.rules, vocab: S.vocab, at: Date.now() }); }
+function snapshot() { LS.set("sb-snapshot", { days: S.days, results: S.results, state: S.state, rules: S.rules, vocab: S.vocab, vscore: S.vscore, at: Date.now() }); }
 function pendingKey(table, row, pk) { return table + ":" + row[pk]; }
 async function write(table, row, pk) {
   const pend = LS.get("sb-pending", {});
@@ -625,6 +809,8 @@ const byKey = (rows, k) => Object.fromEntries((rows || []).map(r => [r[k], r]));
 
 async function load() {
   const since = addDays(S.today, -60);
+  const vs = await S.sb.from("vocab_score").select("*").eq("id", 1).maybeSingle();
+  if (!vs.error) S.vscore = vs.data || { id: 1, points: 0, log: [] };
   S.sb.from("reminder_settings").select("*").eq("id", 1).maybeSingle().then(r => { if (!r.error) { S.reminder = r.data; if (!$("v-stamps").hidden) renderStamps(); } });
   const [dq, qr, st, rl, vc] = await Promise.all([
     S.sb.from("daily_quiz").select("*").gte("quiz_date", since),
@@ -645,6 +831,7 @@ async function load() {
     if (table === "quiz_results") S.results[row.quiz_date] = row;
     if (table === "vocab") S.vocab[row.word] = row;
     if (table === "stamp_state") S.state = row;
+    if (table === "vocab_score") S.vscore = row;
   });
 }
 async function settle() {
@@ -671,7 +858,7 @@ async function refresh() {
     await load(); S.ready = true; await settle(); snapshot(); sys("");
   } catch (e) {
     const snap = LS.get("sb-snapshot", null);
-    if (snap) { Object.assign(S, { days: snap.days, results: snap.results, state: snap.state, rules: snap.rules, vocab: snap.vocab }); S.ready = true;
+    if (snap) { Object.assign(S, { days: snap.days, results: snap.results, state: snap.state, rules: snap.rules, vocab: snap.vocab, vscore: snap.vscore }); S.ready = true;
       sys(`<div class="banner">现在连不上网络，显示的是上次保存的内容。答题记录会在连上网络后自动上传。</div>`); }
     else sys(`<div class="banner">读取数据失败：${esc(e.message || e)}。请检查网络后重新打开。</div>`);
   }
@@ -695,7 +882,7 @@ async function boot() {
   if (!window.supabase) {
     const snap = LS.get("sb-snapshot", null);
     S.user = snap ? { offline: true } : null;
-    if (snap) { Object.assign(S, { days: snap.days, results: snap.results, state: snap.state, rules: snap.rules, vocab: snap.vocab }); S.ready = true; }
+    if (snap) { Object.assign(S, { days: snap.days, results: snap.results, state: snap.state, rules: snap.rules, vocab: snap.vocab, vscore: snap.vscore }); S.ready = true; }
     renderAll(); sys(`<div class="banner">现在连不上网络。</div>`); return;
   }
   S.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
