@@ -1,5 +1,5 @@
 // App-shell cache: the page itself is network-first (so updates arrive), everything else cache-first.
-const CACHE = "stamp-book-v4"; // bump on every release so phones drop old files
+const CACHE = "stamp-book-v5"; // bump on every release so phones drop old files
 
 // daily reminder: the server sends an empty push, the text lives here
 self.addEventListener("push", e => {

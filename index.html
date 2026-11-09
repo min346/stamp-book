@@ -99,7 +99,7 @@ details.rule .body{padding:0 16px 16px;display:flex;flex-direction:column;gap:10
 .vbtns .btn{padding:12px 6px;font-size:15px}
 .vbtns .b0{background:var(--bad)} .vbtns .b1{background:var(--gold)} .vbtns .b2{background:var(--good)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:12px;background:var(--line)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;border-radius:12px;background:var(--line)}
 .seg button{border:0;border-radius:9px;padding:9px 4px;background:transparent;color:var(--muted);font-weight:700;font-size:14px}
 .seg button[aria-selected="true"]{background:var(--paper);color:var(--ink)}
 .dot{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--ink);color:var(--paper);font-size:11px;line-height:18px;font-variant-numeric:tabular-nums}
@@ -108,6 +108,25 @@ details.rule .body{padding:0 16px 16px;display:flex;flex-direction:column;gap:10
 .hint{font-family:var(--f-mono);font-size:18px;letter-spacing:.06em;padding:10px 12px;border-radius:10px;background:var(--gold-soft);color:var(--gold);overflow-wrap:anywhere}
 .spellans{font-family:var(--f-mono);letter-spacing:.04em}
 .spellans mark{background:var(--gold-soft);color:var(--gold);border-radius:3px;padding:0 1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chipbtn{border:1.5px solid var(--line);background:var(--paper);color:var(--fg);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:700}
+.chipbtn span{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.chipbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--ink-soft);color:var(--ink)}
+.bw{font-family:var(--f-display);font-size:19px}
+.word-item summary{padding:12px 14px}
+.chart{position:relative}
+.chart svg{width:100%;height:auto;display:block;touch-action:manipulation}
+.chart .ax{font-family:var(--f-mono);font-size:10px;fill:var(--muted)}
+.chart .tip{position:absolute;top:0;right:0;background:var(--fg);color:var(--bg);font-size:12px;padding:5px 9px;border-radius:8px;font-variant-numeric:tabular-nums;pointer-events:none}
+.trend b{font-size:17px}
+.arrow{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;font-weight:800}
+.arrow.done{background:var(--good-soft);color:var(--good)} .arrow.bad{background:var(--bad-soft);color:var(--bad)} .arrow.prac{background:var(--gold-soft);color:var(--gold)} .arrow.new{background:var(--line);color:var(--muted)}
+.tscroll{overflow-x:auto}
+.ttable{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.ttable th{text-align:left;font-size:12px;color:var(--muted);font-weight:700;padding:6px 6px 6px 0;border-bottom:1px solid var(--line)}
+.ttable td{padding:8px 6px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.field textarea{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--paper);color:var(--fg);resize:vertical}
+.ask{background:none;border:0;padding:0;margin-top:6px;color:var(--ink);font-size:14px;font-weight:700;text-decoration:underline}
 .meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
 .meter i{display:block;height:100%;background:var(--ink);border-radius:5px}
 .stat{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
@@ -133,7 +152,7 @@ details.rule .body{padding:0 16px 16px;display:flex;flex-direction:column;gap:10
 
 /* tab bar */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--paper);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
-nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
 nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 10px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:700}
 nav.tabs a svg{width:24px;height:24px}
 nav.tabs a[aria-current="page"]{color:var(--ink)}
@@ -166,6 +185,7 @@ a{color:var(--ink)}
   <section class="view" id="v-rules" hidden></section>
   <section class="view" id="v-words" hidden></section>
   <section class="view" id="v-stamps" hidden></section>
+  <section class="view" id="v-stats" hidden></section>
 </div>
 
 <nav class="tabs" aria-label="主菜单" id="tabbar" hidden><div class="in">
@@ -173,6 +193,7 @@ a{color:var(--ink)}
   <a href="#rules" data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>语法规则</a>
   <a href="#words" data-tab="words"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/><path d="M7 12h6M10 9v6"/></svg>背单词</a>
   <a href="#stamps" data-tab="stamps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg>印章</a>
+  <a href="#stats" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>分析</a>
 </div></nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -210,7 +231,7 @@ const S = {
 };
 
 /* ---------- tabs ---------- */
-const TABS = ["quiz", "rules", "words", "stamps"];
+const TABS = ["quiz", "rules", "words", "stamps", "stats"];
 function showTab() {
   if (!S.user) { TABS.forEach(n => $("v-" + n).hidden = true); $("v-auth").hidden = false; $("tabbar").hidden = true; return; }
   $("v-auth").hidden = true; $("tabbar").hidden = false;
@@ -343,12 +364,13 @@ function renderQuiz() {
         if (chosen !== null) { if (i === q.answer) cls = "right"; else if (i === chosen) cls = "wrong"; }
         return `<button class="opt ${cls}" data-opt="${i}" ${chosen !== null ? "disabled" : ""}><b>${LETTERS[i]}</b><span>${esc(o)}</span></button>`;
       }).join("")}</div>
-      ${chosen !== null ? `<div class="feedback ${chosen === q.answer ? "ok" : "no"}"><strong>${chosen === q.answer ? "答对了" : `不对，正确答案是 ${LETTERS[q.answer]}`}</strong>${esc(q.explain)}</div>` : ""}
+      ${chosen !== null ? `<div class="feedback ${chosen === q.answer ? "ok" : "no"}"><strong>${chosen === q.answer ? "答对了" : `不对，正确答案是 ${LETTERS[q.answer]}`}</strong>${esc(q.explain)}<br><button class="ask" type="button" id="askQ">💬 还是不明白？问 Claude</button></div>` : ""}
     </div>
     ${chosen !== null ? `<button class="btn" id="nextQ" ${S.saving ? "disabled" : ""}>${S.qi === qs.length - 1 ? "完成，领取今天的印章" : "下一题"}</button>` : `<p class="note">选一个答案。答完会马上看到对错和解释。</p>`}
   </div>`;
   v.querySelectorAll("[data-opt]").forEach(b => b.onclick = () => pick(q, +b.dataset.opt));
   const nb = $("nextQ"); if (nb) nb.onclick = () => next(qs);
+  const aq = $("askQ"); if (aq) aq.onclick = () => askClaude(`我在做英文语法练习（${rule ? rule.label : q.type}），这题我${chosen === q.answer ? "答对了但不太确定为什么" : "答错了"}：\n题目：${q.prompt}\n选项：${q.options.map((o, i) => LETTERS[i] + ". " + o).join("  ")}\n我选了 ${LETTERS[chosen]}，正确答案是 ${LETTERS[q.answer]}。\n请用中文解释为什么，并给我 3 个类似的例句和 2 题练习。`);
 }
 async function pick(q, i) {
   if (S.picked !== null) return;
@@ -417,9 +439,11 @@ function renderRules() {
           ${(r.points || []).length ? `<ul style="margin:0;padding-left:20px">${r.points.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
           ${(r.examples || []).length ? `<div class="ex">${r.examples.map(e => `<span class="x">✗</span><s>${esc(e.wrong)}</s><span class="v">✓</span><span>${esc(e.right)}</span>`).join("")}</div>` : ""}
           ${r.tip ? `<div class="banner">${esc(r.tip)}</div>` : ""}
+          <button class="ask" type="button" data-askrule="${esc(r.id)}" style="align-self:flex-start">💬 问 Claude 这条规则</button>
         </div></details>`;
     }).join("")}
   </div>`;
+  v.querySelectorAll("[data-askrule]").forEach(b => b.onclick = () => { const r = ruleById(b.dataset.askrule); askClaude(`我常犯这个英文错误：「${r.label}」。我写错过的句子：${(r.examples || []).map(e => e.wrong + " → " + e.right).join("；")}。请用中文再讲清楚这条规则，告诉我怎么在写作时自己检查，再出 5 题练习（先不要给答案）。`); });
   if (S.openRule) { const el = $("rule-" + S.openRule); if (el) el.scrollIntoView({ block: "start" }); S.openRule = null; }
 }
 
@@ -437,10 +461,11 @@ function renderWords() {
     <div class="seg" role="tablist">
       <button role="tab" data-mode="cards" aria-selected="${mode === "cards"}">翻卡片</button>
       <button role="tab" data-mode="test" aria-selected="${mode === "test"}">拼写测验${ready ? ` <span class="dot">${ready}</span>` : ""}</button>
-      <button role="tab" data-mode="points" aria-selected="${mode === "points"}">单词积分</button>
+      <button role="tab" data-mode="book" aria-selected="${mode === "book"}">单词本</button>
+      <button role="tab" data-mode="points" aria-selected="${mode === "points"}">积分</button>
     </div>`;
-  if (mode === "test") renderTest(v, seg); else if (mode === "points") renderPoints(v, seg); else renderCards(v, seg);
-  v.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.wordMode = b.dataset.mode; if (S.wordMode === "test" && (!S.test || S.test.finished)) S.test = null; renderWords(); window.scrollTo(0, 0); });
+  if (mode === "test") renderTest(v, seg); else if (mode === "points") renderPoints(v, seg); else if (mode === "book") renderBook(v, seg); else renderCards(v, seg);
+  v.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.wordMode = b.dataset.mode; if (S.wordMode === "test" && (!S.test || S.test.finished || S.test.practice)) S.test = null; renderWords(); window.scrollTo(0, 0); });
 }
 function renderCards(v, seg) {
   const all = Object.values(S.vocab);
@@ -519,6 +544,10 @@ function questionType(w) {
   if (w.test_stage >= 2) return Math.random() < 0.6 ? "sentence" : "meaning";
   return "sentence";
 }
+function startPractice(words) {
+  S.test = { practice: true, items: words.slice(0, 20).map(w => ({ word: w.word, type: w.cloze && (w.test_stage || 0) >= 1 && Math.random() < 0.5 ? "sentence" : "meaning", retry: true })), i: 0, hint: 0, answered: null, earned: 0, firstTry: {}, finished: false };
+  S.wordMode = "test"; renderWords(); window.scrollTo(0, 0);
+}
 function startTest() {
   const pool = testReady().sort((a, b) => (b.hint_debt || 0) - (a.hint_debt || 0) || String(a.test_due || "").localeCompare(String(b.test_due || "")) || (a.test_box || 0) - (b.test_box || 0));
   S.test = { items: pool.slice(0, TEST_MAX).map(w => ({ word: w.word, type: questionType(w), retry: false })), i: 0, hint: 0, answered: null, earned: 0, firstTry: {}, finished: false };
@@ -546,7 +575,7 @@ function renderTest(v, seg) {
     ? `<div class="eyebrow">看意思，拼出单词 · ${esc(w.pos || "")}</div><div class="zh" style="font-size:26px">${esc(w.zh)}</div>`
     : `<div class="eyebrow">句子里缺了哪个词？</div><div class="prompt" style="font-weight:400">${esc(w.cloze).split("___").join('<span class="blank"></span>')}</div>`;
   v.innerHTML = `<div class="stack">${seg}
-    <div class="row"><div class="grow eyebrow">第 ${T.i + 1} / ${T.items.length} 题${it.retry ? " · 再练一次（不计分）" : ""}</div><span class="count">本轮 +${T.earned} 分</span></div>
+    <div class="row"><div class="grow eyebrow">第 ${T.i + 1} / ${T.items.length} 题${T.practice ? " · 单词本练习（不计分，不影响复习时间）" : it.retry ? " · 再练一次（不计分）" : ""}</div><span class="count">本轮 +${T.earned} 分</span></div>
     <div class="progress" style="grid-template-columns:repeat(${T.items.length},1fr)" aria-hidden="true">${T.items.map((x, i) => `<i class="${i < T.i ? (T.firstTry[x.word + (x.retry ? "#r" : "")] ? "ok" : "no") : i === T.i ? "cur" : ""}"></i>`).join("")}</div>
     <div class="card stack">
       ${prompt}
@@ -569,13 +598,14 @@ function renderTest(v, seg) {
   } else {
     $("nextSpell").onclick = () => { T.i++; T.hint = 0; T.answered = null; renderWords(); window.scrollTo(0, 0); };
     const say = $("sayAns"); if (say) say.onclick = () => speak(w.word, 0.8);
+    v.querySelectorAll("[data-ask]").forEach(b => b.onclick = () => askClaude(`我在背英文单词「${w.word}」（${w.zh}），拼写测验时${done.correct ? "拼对了" : `拼成了「${done.given || "（没写）"}」`}。请用中文教我怎么记住它的拼写（拆音节、词根或联想都可以），再给我 3 个例句。`));
   }
 }
 function feedbackHtml(w, it, d) {
   const ex = it.type === "sentence" ? `<div class="note">${esc(w.cloze.replace("___", w.word))}<br>${esc(w.cloze_zh || "")}</div>` : `<div class="note">${esc(w.example || "")}</div>`;
   if (d.correct) return `<div class="feedback ok"><strong>拼对了${d.points ? ` · +${d.points} 分` : ""}</strong>${d.hinted ? "用了提示，这个词接下来几周会多测几次。" : "没用提示，下次会隔更久再测。"}${ex}<button class="linkbtn" type="button" id="sayAns">🔊 听发音</button></div>`;
   return `<div class="feedback no"><strong>${d.gaveUp && !norm(d.given) ? "答案是" : "不对，正确拼写是"}：<span class="spellans">${diffHtml(d.given, w.word)}</span></strong>
-    ${norm(d.given) ? `你写的是 <s>${esc(d.given)}</s>（黄色是写错或漏掉的字母）。` : ""} 这个词明天会再测，翻卡片里也会再出现。${ex}<button class="linkbtn" type="button" id="sayAns">🔊 听发音</button></div>`;
+    ${norm(d.given) ? `你写的是 <s>${esc(d.given)}</s>（黄色是写错或漏掉的字母）。` : ""} 这个词明天会再测，翻卡片里也会再出现。${ex}<button class="linkbtn" type="button" id="sayAns">🔊 听发音</button> <button class="ask" type="button" data-ask="${esc(w.word)}">💬 问 Claude 这个词</button></div>`;
 }
 async function answerSpell(given, gaveUp) {
   const T = S.test, it = T.items[T.i], w = S.vocab[it.word];
@@ -611,12 +641,29 @@ async function answerSpell(given, gaveUp) {
     T.earned += points;
     write("vocab", row, "word");
   }
+  if (!it.retry) {
+    const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
+    const att = { id, at: S.today, word: w.word, qtype: it.type, correct, hinted };
+    (S.attempts = S.attempts || {})[id] = att;
+    write("vocab_attempts", att, "id");
+  }
   T.answered = { given, correct, hinted, gaveUp, points };
   snapshot();
   renderWords();
 }
 function renderTestDone(v, seg) {
   const T = S.test;
+  if (T.practice) {
+    const ok = T.items.filter(x => T.firstTry[x.word + "#r"]).length;
+    const miss = T.items.filter(x => !T.firstTry[x.word + "#r"]).map(x => S.vocab[x.word]);
+    v.innerHTML = `<div class="stack">${seg}<div class="card"><div class="eyebrow">单词本练习</div><div class="score">${ok}<span class="muted" style="font-size:24px"> / ${T.items.length}</span></div>
+      <p class="note" style="margin:6px 0 0">练习模式不计分，也不改变正式复习的时间。</p></div>
+      ${miss.length ? `<div class="card stack"><h3>这次没拼对的</h3><ul class="log">${miss.map(w => `<li><span><b>${esc(w.word)}</b> <span class="muted">${esc(w.zh)}</span></span></li>`).join("")}</ul><button class="btn ghost" id="practiceMiss">只练这几个</button></div>` : ""}
+      <button class="btn" id="backBook">回到单词本</button></div>`;
+    $("backBook").onclick = () => { S.test = null; S.wordMode = "book"; renderWords(); };
+    const pm = $("practiceMiss"); if (pm) pm.onclick = () => startPractice(miss);
+    return;
+  }
   if (!T.finished) {
     T.finished = true;
     const first = T.items.filter(x => !x.retry);
@@ -633,6 +680,157 @@ function renderTestDone(v, seg) {
     ${testReady().length ? `<button class="btn" id="againTest">再测一轮（还有 ${testReady().length} 个词）</button>` : `<div class="card note">今天能测的词都测完了。</div>`}
   </div>`;
   const a = $("againTest"); if (a) a.onclick = () => { S.test = null; renderWords(); };
+}
+
+/* ---------- word book: everything learned so far ---------- */
+function wordStatus(w) {
+  if ((w.hint_debt || 0) > 0 || ((w.tests || 0) > 0 && (w.test_box || 0) === 0)) return { key: "weak", cls: "prac", label: "要加练" };
+  if ((w.test_stage || 0) >= 2 && (w.test_box || 0) >= 3) return { key: "master", cls: "done", label: "已掌握" };
+  if ((w.test_stage || 0) >= 1) return { key: "spell", cls: "done", label: "会拼写" };
+  if ((w.seen || 0) >= 1) return { key: "seen", cls: "new", label: "背过" };
+  return { key: "new", cls: "new", label: "未背" };
+}
+function renderBook(v, seg) {
+  const all = Object.values(S.vocab);
+  const f = S.bookFilter || "all", q = norm(S.bookQuery || "");
+  const filters = [["all", "全部"], ["weak", "要加练"], ["spell", "会拼写"], ["master", "已掌握"], ["new", "未背"]];
+  const count = k => k === "all" ? all.length : all.filter(w => { const s = wordStatus(w).key; return k === "spell" ? s === "spell" || s === "master" : k === "new" ? s === "new" || s === "seen" : s === k; }).length;
+  let list = all.filter(w => {
+    const s = wordStatus(w).key;
+    const okF = f === "all" || (f === "spell" ? s === "spell" || s === "master" : f === "new" ? s === "new" || s === "seen" : s === f);
+    return okF && (!q || norm(w.word).includes(q) || String(w.zh || "").includes(S.bookQuery.trim()));
+  }).sort((a, b) => String(b.added_date).localeCompare(String(a.added_date)) || a.word.localeCompare(b.word));
+  const groups = {};
+  list.forEach(w => (groups[w.added_date] = groups[w.added_date] || []).push(w));
+  const practicable = list.filter(w => (w.seen || 0) >= 1);
+  v.innerHTML = `<div class="stack">${seg}
+    <label class="field">搜索单词或中文意思<input id="bookQ" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${esc(S.bookQuery || "")}" placeholder="例如 robust 或 节俭"></label>
+    <div class="chips">${filters.map(([k, l]) => `<button class="chipbtn" data-f="${k}" aria-pressed="${f === k}">${l} <span>${count(k)}</span></button>`).join("")}</div>
+    ${practicable.length ? `<button class="btn ghost" id="practiceList">用这 ${Math.min(practicable.length, 20)} 个词练一轮拼写（不计分）</button>` : ""}
+    ${list.length ? Object.entries(groups).map(([d, ws]) => `<div class="stack" style="gap:8px"><div class="eyebrow">${nice(d)} 学的 · ${ws.length} 个</div>
+      ${ws.map(w => { const st = wordStatus(w); return `<details class="rule word-item"><summary><div class="grow"><b class="bw">${esc(w.word)}</b> <span class="muted">${esc(w.pos || "")}</span><div class="note">${esc(w.zh)}</div></div><span class="pill ${st.cls}">${st.label}</span></summary>
+        <div class="body">
+          <div class="ipa">${esc(w.ipa || "")}</div>
+          <div><i>${esc(w.example || "")}</i><div class="note">${esc(w.example_zh || "")}</div></div>
+          <div class="row" style="gap:8px"><button class="btn ghost grow" data-say="${esc(w.word)}" type="button">🔊 读单词</button><button class="btn ghost grow" data-say="${esc(w.example || w.word)}" type="button">🔊 读例句</button></div>
+          <div class="count">翻卡片 ${w.seen || 0} 次 · 拼写测 ${w.tests || 0} 次、对 ${w.test_correct || 0} 次${(w.hint_debt || 0) ? ` · 还要多测 ${w.hint_debt} 次` : ""}${w.test_due ? ` · 下次测验 ${nice(w.test_due)}` : ""}</div>
+          <button class="linkbtn" type="button" data-ask="${esc(w.word)}" style="align-self:flex-start">💬 问 Claude 这个词</button>
+        </div></details>`; }).join("")}</div>`).join("") : `<div class="card note">没有符合条件的单词。</div>`}
+  </div>`;
+  const qi = $("bookQ");
+  qi.oninput = () => { S.bookQuery = qi.value; const pos = qi.selectionStart; renderWords(); const n = $("bookQ"); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} };
+  v.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.bookFilter = b.dataset.f; renderWords(); });
+  v.querySelectorAll("[data-say]").forEach(b => b.onclick = () => speak(b.dataset.say, 0.9));
+  v.querySelectorAll("[data-ask]").forEach(b => b.onclick = () => { const w = S.vocab[b.dataset.ask]; askClaude(`我在背英文单词「${w.word}」（${w.pos || ""} ${w.zh}）。请用中文解释它的用法、常见搭配和容易混淆的词，再给我 3 个不同话题的例句，最后出 2 题让我练习。`); });
+  const pl = $("practiceList"); if (pl) pl.onclick = () => startPractice(practicable.slice().sort(() => Math.random() - 0.5));
+}
+
+/* ---------- ask Claude: opens a new Claude chat with the question filled in ---------- */
+function askClaude(prompt) {
+  const url = "https://claude.ai/new?q=" + encodeURIComponent(prompt.slice(0, 1800));
+  const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ---------- analysis: am I improving? ---------- */
+const pct = (a, b) => b ? Math.round(100 * a / b) : null;
+function trendWord(now, before, n) {
+  if (now == null || before == null || n < 6) return { cls: "new", icon: "…", text: "数据还不够" };
+  const d = now - before;
+  if (d >= 5) return { cls: "done", icon: "↑", text: `进步了 ${d} 个百分点` };
+  if (d <= -5) return { cls: "bad", icon: "↓", text: `退步了 ${-d} 个百分点` };
+  return { cls: "prac", icon: "→", text: "差不多，没有明显变化" };
+}
+function lineChart(id, pts, opts = {}) {
+  // pts: [{label, value(0-100) | null}] ; one series, so the title names it and no legend box is needed
+  const W = 340, H = 170, L = 34, R = 10, T = 12, B = 26, iw = W - L - R, ih = H - T - B;
+  const n = pts.length, x = i => L + (n <= 1 ? iw / 2 : i * iw / (n - 1)), y = v => T + ih - v / 100 * ih;
+  const valid = pts.map((p, i) => ({ ...p, i })).filter(p => p.value != null);
+  const path = valid.map((p, k) => `${k ? "L" : "M"}${x(p.i).toFixed(1)},${y(p.value).toFixed(1)}`).join("");
+  const grid = [0, 50, 100].map(g => `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(g) + 4}" text-anchor="end" class="ax">${g}%</text>`).join("");
+  const ticks = pts.map((p, i) => (i === 0 || i === n - 1 || (n > 6 && i === Math.floor((n - 1) / 2))) ? `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}" class="ax">${esc(p.label)}</text>` : "").join("");
+  const last = valid[valid.length - 1];
+  return `<div class="chart" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria || "")}">${grid}
+    ${opts.avg != null ? `<line x1="${L}" x2="${W - R}" y1="${y(opts.avg)}" y2="${y(opts.avg)}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1"/><text x="${L + 4}" y="${opts.avg > 50 ? y(opts.avg) + 13 : y(opts.avg) - 5}" text-anchor="start" class="ax">平均 ${opts.avg}%</text>` : ""}
+    <path d="${path}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${valid.map(p => `<circle cx="${x(p.i)}" cy="${y(p.value)}" r="${p === last ? 5 : 4}" fill="var(--ink)" stroke="var(--paper)" stroke-width="2"/>`).join("")}
+    ${ticks}
+    ${valid.map(p => `<rect class="hit" x="${x(p.i) - Math.max(8, iw / n / 2)}" y="${T}" width="${Math.max(16, iw / n)}" height="${ih}" fill="transparent" data-tip="${esc(p.label)}：${p.value}%${p.note ? " · " + esc(p.note) : ""}"/>`).join("")}
+  </svg><div class="tip" hidden></div></div>`;
+}
+function bindCharts(root) {
+  root.querySelectorAll(".chart").forEach(c => {
+    const tip = c.querySelector(".tip");
+    c.querySelectorAll(".hit").forEach(h => {
+      const show = () => { tip.textContent = h.dataset.tip; tip.hidden = false; };
+      h.addEventListener("pointerenter", show); h.addEventListener("pointerdown", show);
+    });
+    c.addEventListener("pointerleave", () => { tip.hidden = true; });
+  });
+}
+function renderStats() {
+  const v = $("v-stats");
+  if (!S.ready) { v.innerHTML = loadingCard("正在整理你的数据…"); return; }
+  // 1) daily quiz accuracy, last 21 app days
+  const days = Array.from({ length: 21 }, (_, i) => addDays(S.today, i - 20));
+  const quizPts = days.map(d => { const r = S.results[d]; const q = S.days[d]; if (!r || !q) return { label: nice(d), value: null };
+    const ans = Object.values(r.answers || {}); return { label: nice(d), value: ans.length ? pct(ans.filter(a => a.correct).length, ans.length) : null, note: r.done ? `${r.score}/${r.total}` : "没做完" }; });
+  const scored = quizPts.filter(p => p.value != null);
+  const recent = Object.values(S.results).filter(r => r.quiz_date > addDays(S.today, -7));
+  const prev = Object.values(S.results).filter(r => r.quiz_date <= addDays(S.today, -7) && r.quiz_date > addDays(S.today, -14));
+  const acc = rs => { const a = rs.flatMap(r => Object.values(r.answers || {})); return { p: pct(a.filter(x => x.correct).length, a.length), n: a.length }; };
+  const A = acc(recent), Bq = acc(prev);
+  const quizTrend = trendWord(A.p, Bq.p, Math.min(A.n, Bq.n));
+  const avg = scored.length ? Math.round(scored.reduce((s, p) => s + p.value, 0) / scored.length) : null;
+  // 2) grammar types: first half vs second half of answers
+  const byType = {};
+  Object.values(S.results).sort((a, b) => a.quiz_date.localeCompare(b.quiz_date)).forEach(r => Object.values(r.answers || {}).forEach(a => (byType[a.type] = byType[a.type] || []).push(!!a.correct)));
+  const typeRows = Object.entries(byType).filter(([, xs]) => xs.length >= 4).map(([t, xs]) => {
+    const h = Math.floor(xs.length / 2), e = xs.slice(0, h), l = xs.slice(h);
+    const ep = pct(e.filter(Boolean).length, e.length), lp = pct(l.filter(Boolean).length, l.length);
+    return { t, label: (ruleById(t) || {}).label || t, ep, lp, d: lp - ep, n: xs.length };
+  }).sort((a, b) => b.d - a.d);
+  // 3) spelling: first-try accuracy without hint per week
+  const atts = Object.values(S.attempts || {});
+  const weeks = Array.from({ length: 6 }, (_, i) => { const end = addDays(S.today, -7 * (5 - i)), start = addDays(end, -6);
+    const xs = atts.filter(a => a.at >= start && a.at <= end); return { label: `${nice(start)}起`, value: xs.length ? pct(xs.filter(a => a.correct && !a.hinted).length, xs.length) : null, note: xs.length ? `${xs.length} 题，用提示 ${xs.filter(a => a.hinted).length} 次` : "" }; });
+  const sp7 = atts.filter(a => a.at > addDays(S.today, -7)), spPrev = atts.filter(a => a.at <= addDays(S.today, -7) && a.at > addDays(S.today, -14));
+  const sAcc = xs => pct(xs.filter(a => a.correct && !a.hinted).length, xs.length), hintRate = xs => pct(xs.filter(a => a.hinted).length, xs.length);
+  const spellTrend = trendWord(sAcc(sp7), sAcc(spPrev), Math.min(sp7.length, spPrev.length));
+  // 4) consistency
+  const avail = Object.keys(S.days).filter(d => d >= ((S.state && S.state.start_date) || S.today) && d <= S.today);
+  const doneDays = avail.filter(d => S.results[d] && S.results[d].done).length;
+  const vAll = Object.values(S.vocab);
+  const mastered = vAll.filter(w => wordStatus(w).key === "master").length, spell = vAll.filter(w => (w.test_stage || 0) >= 1).length;
+
+  const tile = (label, tr) => `<div class="trend"><div class="eyebrow">${label}</div><div class="row" style="gap:8px"><span class="arrow ${tr.cls}" aria-hidden="true">${tr.icon}</span><b>${tr.text}</b></div></div>`;
+  v.innerHTML = `<div class="stack">
+    <div><div class="eyebrow">最近 7 天 vs 之前 7 天</div><h2>我有没有进步？</h2></div>
+    <div class="card stack">${tile("语法测验正确率", quizTrend)}
+      <p class="note" style="margin:0">最近 7 天 ${A.p ?? "–"}%（${A.n} 题） · 之前 7 天 ${Bq.p ?? "–"}%（${Bq.n} 题）</p>
+      ${tile("单词拼写（一次拼对、不用提示）", spellTrend)}
+      <p class="note" style="margin:0">最近 7 天 ${sAcc(sp7) ?? "–"}%（${sp7.length} 题，提示用了 ${hintRate(sp7) ?? 0}%） · 之前 7 天 ${sAcc(spPrev) ?? "–"}%（${spPrev.length} 题）</p>
+      ${Math.min(A.n, Bq.n) < 6 ? `<div class="banner">要连续用两个星期，前后两段都有足够的题目，才判断得出有没有进步。现在先看下面的每日记录。</div>` : ""}
+    </div>
+    <div class="card stack"><h3>每日测验正确率（最近 21 天）</h3>
+      ${scored.length ? lineChart("chQuiz", quizPts, { avg, aria: "每日测验正确率折线图" }) : `<p class="note" style="margin:0">还没有测验记录。</p>`}
+      <p class="note" style="margin:0">点一下圆点可以看当天的分数。空着的日子表示没做。</p></div>
+    <div class="card stack"><h3>各类语法：早期 vs 最近</h3>
+      ${typeRows.length ? `<div class="tscroll"><table class="ttable"><thead><tr><th>类型</th><th>早期</th><th>最近</th><th>变化</th></tr></thead><tbody>
+        ${typeRows.map(r => `<tr><td>${esc(r.label)}<div class="count">${r.n} 题</div></td><td>${r.ep}%</td><td><b>${r.lp}%</b></td><td><span class="arrow ${r.d >= 10 ? "done" : r.d <= -10 ? "bad" : "prac"}">${r.d >= 10 ? "↑" : r.d <= -10 ? "↓" : "→"}</span> ${r.d > 0 ? "+" : ""}${r.d}</td></tr>`).join("")}
+      </tbody></table></div><p class="note" style="margin:0">每种类型把你答过的题按时间分成前后两半来比较。少于 4 题的类型不列出来。</p>` : `<p class="note" style="margin:0">每种类型至少答过 4 题后，这里会显示前后对比。</p>`}</div>
+    <div class="card stack"><h3>单词拼写正确率（每周）</h3>
+      ${atts.length ? lineChart("chSpell", weeks, { aria: "每周拼写正确率折线图" }) : `<p class="note" style="margin:0">做过拼写测验后，这里会显示每周的变化。</p>`}</div>
+    <div class="stats"><div class="stat"><b>${doneDays}/${avail.length || 0}</b><span>完成测验的天数</span></div><div class="stat"><b>${spell}</b><span>会拼写的单词</span></div><div class="stat"><b>${mastered}</b><span>已掌握的单词</span></div></div>
+    <div class="card stack"><h3>💬 有问题，直接问 Claude</h3>
+      <label class="field">你的问题<textarea id="askBox" rows="3" placeholder="例如：whether 和 if 有什么分别？"></textarea></label>
+      <button class="btn" id="askBtn" type="button">打开 Claude 问这个问题</button>
+      <button class="linkbtn" id="askReport" type="button" style="align-self:flex-start">把我这两周的分析发给 Claude，请它给建议</button>
+      <p class="note" style="margin:0">会打开 Claude App 的新对话，问题已经填好。Claude 记得你的英文错误记录。</p></div>
+  </div>`;
+  bindCharts(v);
+  $("askBtn").onclick = () => { const t = $("askBox").value.trim(); if (!t) { $("askBox").focus(); return; } askClaude(`（来自我的英文学习 App）${t}\n请用中文解释，并给例子。`); };
+  $("askReport").onclick = () => askClaude(`这是我英文学习 App 的数据，请用中文帮我分析有没有进步、哪里最弱，并给我下周的练习建议：\n- 语法测验正确率：最近 7 天 ${A.p ?? "无"}%（${A.n} 题），之前 7 天 ${Bq.p ?? "无"}%（${Bq.n} 题）\n- 各类型（早期→最近）：${typeRows.map(r => `${r.label} ${r.ep}%→${r.lp}%`).join("；") || "数据不足"}\n- 单词拼写一次拼对率：最近 7 天 ${sAcc(sp7) ?? "无"}%，之前 ${sAcc(spPrev) ?? "无"}%；提示使用率 ${hintRate(sp7) ?? 0}%\n- 完成测验 ${doneDays}/${avail.length} 天，会拼写 ${spell} 个词，已掌握 ${mastered} 个词`);
 }
 
 /* ---------- vocabulary points (separate from stamps) ---------- */
@@ -783,7 +981,7 @@ function renderHeader() {
   $("hdrSub").textContent = S.ready ? `${nice(S.today)} 这一轮 · 06:00 更新` : "每天 06:00 更新";
   $("offlineTag").hidden = navigator.onLine;
 }
-function renderAll() { renderHeader(); if (!S.user) { renderAuth(); showTab(); return; } renderQuiz(); renderRules(); renderWords(); renderStamps(); showTab(); }
+function renderAll() { renderHeader(); if (!S.user) { renderAuth(); showTab(); return; } renderQuiz(); renderRules(); renderWords(); renderStamps(); renderStats(); showTab(); }
 function sys(html) { const el = $("sysmsg"); el.innerHTML = html; el.hidden = !html; }
 
 /* ---------- data ---------- */
@@ -809,6 +1007,8 @@ const byKey = (rows, k) => Object.fromEntries((rows || []).map(r => [r[k], r]));
 
 async function load() {
   const since = addDays(S.today, -60);
+  const va = await S.sb.from("vocab_attempts").select("*").gte("at", addDays(S.today, -120));
+  if (!va.error) S.attempts = byKey(va.data, "id");
   const vs = await S.sb.from("vocab_score").select("*").eq("id", 1).maybeSingle();
   if (!vs.error) S.vscore = vs.data || { id: 1, points: 0, log: [] };
   S.sb.from("reminder_settings").select("*").eq("id", 1).maybeSingle().then(r => { if (!r.error) { S.reminder = r.data; if (!$("v-stamps").hidden) renderStamps(); } });
@@ -832,6 +1032,7 @@ async function load() {
     if (table === "vocab") S.vocab[row.word] = row;
     if (table === "stamp_state") S.state = row;
     if (table === "vocab_score") S.vscore = row;
+    if (table === "vocab_attempts") (S.attempts = S.attempts || {})[row.id] = row;
   });
 }
 async function settle() {
